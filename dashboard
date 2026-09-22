@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Monitoreo - Detenciones</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 900: '#0F172A', 800: '#1E293B', 700: '#334155', accent: '#38BDF8' }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- PapaParse CDN para leer CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-brand-900 text-gray-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Header / Barra Superior -->
+  <header class="bg-brand-800 border-b border-gray-700 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="p-2 bg-sky-500/10 border border-sky-500/30 rounded-lg text-sky-400">
+        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-wide uppercase text-white">Monitoreo de Detenciones</h1>
+        <p class="text-xs text-gray-400">Consulta en línea e inteligencia operativa</p>
+      </div>
+    </div>
+
+    <!-- Estado y Botón de Recarga -->
+    <div class="flex items-center gap-3">
+      <span id="syncStatus" class="inline-flex items-center gap-2 text-xs text-emerald-400 bg-emerald-950/50 border border-emerald-800 px-3 py-1.5 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado
+      </span>
+      <button onclick="cargarDatos()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition">
+        <i data-lucide="refresh-cw" class="w-4 h-4" id="refreshIcon"></i> Actualizar
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
+
+    <!-- Panel de Filtros -->
+    <div class="bg-brand-800 p-4 rounded-xl border border-gray-700 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- Filtro Año -->
+      <div>
+        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Año</label>
+        <select id="filterYear" onchange="aplicarFiltros()" class="w-full bg-brand-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-400">
+          <option value="ALL">Todos los años</option>
+        </select>
+      </div>
+
+      <!-- Filtro Mes -->
+      <div>
+        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Mes</label>
+        <select id="filterMonth" onchange="aplicarFiltros()" class="w-full bg-brand-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-400">
+          <option value="ALL">Todos los meses</option>
+          <option value="0">Enero</option>
+          <option value="1">Febrero</option>
+          <option value="2">Marzo</option>
+          <option value="3">Abril</option>
+          <option value="4">Mayo</option>
+          <option value="5">Junio</option>
+          <option value="6">Julio</option>
+          <option value="7">Agosto</option>
+          <option value="8">Septiembre</option>
+          <option value="9">Octubre</option>
+          <option value="10">Noviembre</option>
+          <option value="11">Diciembre</option>
+        </select>
+      </div>
+
+      <!-- Filtro Motivo de Detención -->
+      <div>
+        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Motivo de Detención</label>
+        <select id="filterReason" onchange="aplicarFiltros()" class="w-full bg-brand-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-400">
+          <option value="ALL">Todos los motivos</option>
+        </select>
+      </div>
+
+      <!-- Buscador Global -->
+      <div>
+        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Buscar Texto</label>
+        <input type="text" id="globalSearch" oninput="aplicarFiltros()" placeholder="Buscar nombre, folio, etc..." class="w-full bg-brand-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-400">
+      </div>
+    </div>
+
+    <!-- Metricas y Recuentos -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-brand-800 border border-gray-700 rounded-xl p-5 flex items-center justify-between">
+        <div>
+          <p class="text-xs uppercase text-gray-400 font-semibold">Total de Detenciones</p>
+          <h2 id="totalCount" class="text-3xl font-bold text-sky-400 mt-1">0</h2>
+        </div>
+        <i data-lucide="users" class="w-10 h-10 text-sky-400/30"></i>
+      </div>
+      <div class="bg-brand-800 border border-gray-700 rounded-xl p-5 flex items-center justify-between">
+        <div>
+          <p class="text-xs uppercase text-gray-400 font-semibold">Motivo Principal</p>
+          <h2 id="topReason" class="text-lg font-bold text-emerald-400 mt-1 truncate max-w-[200px]">N/A</h2>
+        </div>
+        <i data-lucide="award" class="w-10 h-10 text-emerald-400/30"></i>
+      </div>
+      <div class="bg-brand-800 border border-gray-700 rounded-xl p-5 flex items-center justify-between">
+        <div>
+          <p class="text-xs uppercase text-gray-400 font-semibold">Registros Filtrados</p>
+          <h2 id="filteredCount" class="text-3xl font-bold text-amber-400 mt-1">0</h2>
+        </div>
+        <i data-lucide="filter" class="w-10 h-10 text-amber-400/30"></i>
+      </div>
+    </div>
+
+    <!-- Gráfico -->
+    <div class="bg-brand-800 border border-gray-700 rounded-xl p-5">
+      <h3 class="text-sm font-semibold uppercase text-gray-300 mb-4">Detenciones por Motivo</h3>
+      <div class="relative h-64">
+        <canvas id="reasonsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabla de Datos -->
+    <div class="bg-brand-800 border border-gray-700 rounded-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-700 flex justify-between items-center">
+        <h3 class="text-sm font-semibold uppercase text-gray-300">Detalle de Registros</h3>
+        <span id="tableInfo" class="text-xs text-gray-400"></span>
+      </div>
+      <div class="overflow-x-auto max-h-[500px]">
+        <table class="w-full text-left text-sm text-gray-300">
+          <thead class="bg-brand-900 text-xs uppercase text-gray-400 sticky top-0 border-b border-gray-700">
+            <tr>
+              <th class="p-3">Fecha</th>
+              <th class="p-3">Motivo de Detención</th>
+              <th class="p-3">Nombre / Persona</th>
+              <th class="p-3">Lugar / Colonia</th>
+              <th class="p-3">Folio</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-gray-700">
+            <!-- Filas dinámicas -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // Configura aquí el enlace publicado de tu hoja de cálculo en formato CSV
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?gid=338751008&single=true&output=csv";
+
+    let rawData = [];
+    let filteredData = [];
+    let chartInstance = null;
+
+    async function cargarDatos() {
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('animate-spin');
+      
+      Papa.parse(SHEET_CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          icon.classList.remove('animate-spin');
+          rawData = results.data;
+          
+          inicializarFiltros();
+          aplicarFiltros();
+        },
+        error: function(err) {
+          icon.classList.remove('animate-spin');
+          alert("Error al cargar los datos desde Google Sheets. Revisa la URL pública CSV.");
+        }
+      });
+    }
+
+    function inicializarFiltros() {
+      const yearSelect = document.getElementById('filterYear');
+      const reasonSelect = document.getElementById('filterReason');
+      
+      const years = new Set();
+      const reasons = new Set();
+
+      rawData.forEach(row => {
+        // Obtener fecha del campo 'FECHA DETENCION' o 'Marca temporal'
+        const rawDate = row['FECHA DETENCION'] || row['Marca temporal'] || '';
+        const d = new Date(rawDate);
+        if (!isNaN(d.getFullYear())) years.add(d.getFullYear());
+
+        const motivo = row['MOTIVO DE DETENCION'] || row['MOTIVO DETENCION'] || '';
+        if (motivo) reasons.add(motivo.trim());
+      });
+
+      // Llenar selector de Años
+      yearSelect.innerHTML = '<option value="ALL">Todos los años</option>';
+      Array.from(years).sort((a,b) => b - a).forEach(y => {
+        yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+      });
+
+      // Llenar selector de Motivos
+      reasonSelect.innerHTML = '<option value="ALL">Todos los motivos</option>';
+      Array.from(reasons).sort().forEach(r => {
+        reasonSelect.innerHTML += `<option value="${r}">${r}</option>`;
+      });
+    }
+
+    function aplicarFiltros() {
+      const selectedYear = document.getElementById('filterYear').value;
+      const selectedMonth = document.getElementById('filterMonth').value;
+      const selectedReason = document.getElementById('filterReason').value;
+      const searchQuery = document.getElementById('globalSearch').value.toLowerCase();
+
+      filteredData = rawData.filter(row => {
+        const rawDate = row['FECHA DETENCION'] || row['Marca temporal'] || '';
+        const d = new Date(rawDate);
+
+        // Filtro por Año
+        if (selectedYear !== 'ALL' && d.getFullYear().toString() !== selectedYear) return false;
+
+        // Filtro por Mes
+        if (selectedMonth !== 'ALL' && d.getMonth().toString() !== selectedMonth) return false;
+
+        // Filtro por Motivo
+        const motivo = (row['MOTIVO DE DETENCION'] || row['MOTIVO DETENCION'] || '').trim();
+        if (selectedReason !== 'ALL' && motivo !== selectedReason) return false;
+
+        // Búsqueda General
+        if (searchQuery) {
+          const contentString = Object.values(row).join(' ').toLowerCase();
+          if (!contentString.includes(searchQuery)) return false;
+        }
+
+        return true;
+      });
+
+      renderizarInterfaz();
+    }
+
+    function renderizarInterfaz() {
+      // 1. Tarjetas de contadores
+      document.getElementById('totalCount').innerText = rawData.length;
+      document.getElementById('filteredCount').innerText = filteredData.length;
+
+      // Conteo de motivos
+      const reasonCounts = {};
+      filteredData.forEach(r => {
+        const m = (r['MOTIVO DE DETENCION'] || r['MOTIVO DETENCION'] || 'SIN ESPECIFICAR').trim();
+        reasonCounts[m] = (reasonCounts[m] || 0) + 1;
+      });
+
+      const sortedReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]);
+      document.getElementById('topReason').innerText = sortedReasons.length > 0 ? sortedReasons[0][0] : 'N/A';
+
+      // 2. Renderizar Tabla
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      filteredData.forEach(row => {
+        const fecha = row['FECHA DETENCION'] || row['Marca temporal'] || '-';
+        const motivo = row['MOTIVO DE DETENCION'] || row['MOTIVO DETENCION'] || '-';
+        const nombre = `${row['NOMBRE'] || ''} ${row['APELLIDO PATERNO'] || ''}`.trim() || '-';
+        const colonia = row['COLONIA'] || row['LUGAR DE LA DETENCION'] || '-';
+        const folio = row['FOLIO'] || '-';
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-brand-700/50 transition';
+        tr.innerHTML = `
+          <td class="p-3 text-xs font-mono">${fecha}</td>
+          <td class="p-3 text-xs font-semibold text-sky-400">${motivo}</td>
+          <td class="p-3 text-xs">${nombre}</td>
+          <td class="p-3 text-xs">${colonia}</td>
+          <td class="p-3 text-xs font-mono text-gray-400">${folio}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('tableInfo').innerText = `Mostrando ${filteredData.length} resultados`;
+
+      // 3. Renderizar Gráfico
+      renderizarGrafico(sortedReasons.slice(0, 10)); // Top 10 motivos
+    }
+
+    function renderizarGrafico(data) {
+      const ctx = document.getElementById('reasonsChart').getContext('2d');
+      
+      const labels = data.map(item => item[0]);
+      const values = data.map(item => item[1]);
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Cantidad de Detenciones',
+            data: values,
+            backgroundColor: '#38BDF8',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { ticks: { color: '#9CA3AF', font: { size: 10 } } },
+            y: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } }
+          }
+        }
+      });
+    }
+
+    window.onload = () => {
+      lucide.createIcons();
+      cargarDatos();
+    };
+  </script>
+</body>
+</html>
