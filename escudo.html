@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOPESC-LYA | Coordinación de Logística y Análisis</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tactical: {
+              950: '#050914',
+              900: '#0B1120',
+              800: '#111827',
+              700: '#1F2937',
+              600: '#374151',
+              accent: '#06B6D4',
+              cyanGlow: '#00F0FF',
+              emerald: '#10B981',
+              amber: '#F59E0B',
+              rose: '#EF4444'
+            }
+          },
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Efecto de líneas de escaneo HUD táctico */
+    .scanlines {
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0, 240, 255, 0.03) 50%,
+        rgba(0, 240, 255, 0.03)
+      );
+      background-size: 100% 4px;
+    }
+
+    /* Brillo Neon Neumórfico Táctico */
+    .glow-box {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+    }
+    .glow-box:hover {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+      border-color: rgba(6, 182, 212, 0.6);
+    }
+
+    /* Animación del Radar Táctico */
+    @keyframes radarSweep {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .radar-sweep {
+      animation: radarSweep 4s linear infinite;
+    }
+
+    /* Scrollbar Personalizado */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #0B1120; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #06B6D4; }
+  </style>
+</head>
+<body class="bg-tactical-950 text-gray-100 min-h-screen font-sans flex flex-col antialiased scanlines relative selection:bg-tactical-accent selection:text-black">
+
+  <!-- BARRA SUPERIOR Y NAV -->
+  <header class="bg-tactical-900/90 backdrop-blur-md border-b border-tactical-accent/30 px-6 py-4 sticky top-0 z-50 flex flex-wrap justify-between items-center gap-4">
+    <div class="flex items-center space-x-4">
+      
+      <!-- LOGOTIPO ESTRATEGIA DE SEGURIDAD ESCUDO -->
+      <div class="relative group">
+        <div class="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-500"></div>
+        <img src="https://images.gemini.google.com/search?q=https%3A%2F%2Flh3.googleusercontent.com%2Fgg-p%2FAFU4-NTpIsXm0t9f2Xo44gYk_0C489z63xI1e1E6vL6j1j8_p-U4z3e1oN1w9g" 
+             alt="Estrategia de Seguridad ESCUDO" 
+             class="relative w-14 h-14 rounded-full border-2 border-tactical-accent object-contain bg-black p-0.5 shadow-lg shadow-cyan-500/20">
+      </div>
+
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-extrabold tracking-wider text-white uppercase font-mono">DOPESC-LYA</h1>
+          <span class="text-[10px] font-bold font-mono tracking-widest px-2 py-0.5 bg-tactical-accent/20 text-tactical-accent border border-tactical-accent/40 rounded flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-tactical-accent animate-ping"></span> REAL-TIME
+          </span>
+        </div>
+        <p class="text-xs text-gray-400 font-medium">Coordinación de Logística y Análisis | Estrategia de Seguridad ESCUDO</p>
+      </div>
+    </div>
+
+    <!-- BUSCADOR INTERACTIVO GLOBAL -->
+    <div class="flex-1 max-w-md mx-4">
+      <div class="relative">
+        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tactical-accent"></i>
+        <input type="text" id="searchInput" oninput="filtrarPlataforma()" placeholder="Buscar operativo, mapa, presunto o módulo..." 
+          class="w-full pl-10 pr-4 py-2 bg-tactical-950/80 border border-gray-700 focus:border-tactical-accent rounded-xl text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-tactical-accent transition font-mono placeholder:text-gray-500">
+      </div>
+    </div>
+
+    <!-- ESTADO OPERATIVO -->
+    <div class="flex items-center gap-3 text-xs font-mono">
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-950/40 text-emerald-400 border border-emerald-800/60 rounded-lg shadow-inner">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> SISTEMA EN LÍNEA
+      </div>
+      <div id="clock" class="text-gray-400 font-bold bg-tactical-800 px-3 py-1.5 rounded-lg border border-gray-700">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- SECCIÓN BANNER TÁCTICO HUD -->
+  <section class="border-b border-gray-800 bg-gradient-to-r from-tactical-950 via-tactical-900 to-tactical-950 p-6 relative overflow-hidden">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-6 relative z-10">
+      <div class="space-y-2 max-w-2xl">
+        <div class="inline-flex items-center gap-2 text-xs font-mono text-tactical-accent uppercase tracking-widest bg-tactical-accent/10 px-3 py-1 rounded-full border border-tactical-accent/30">
+          <i data-lucide="shield" class="w-3.5 h-3.5"></i> Plataforma Unificada de Inteligencia
+        </div>
+        <h2 class="text-2xl md:text-3xl font-black text-white tracking-tight uppercase">
+          Estrategia de Seguridad Escudo
+        </h2>
+        <p class="text-sm text-gray-400 leading-relaxed">
+          Centro de mando digital para el monitoreo de operativos, georreferenciación de homicidios, análisis de patrones delictivos y consulta estratégica en tiempo real.
+        </p>
+      </div>
+
+      <!-- ANIMACIÓN VISUAL RADAR HUD -->
+      <div class="relative w-28 h-28 hidden md:flex items-center justify-center border-2 border-tactical-accent/30 rounded-full bg-black/40 overflow-hidden shadow-inner">
+        <div class="absolute inset-0 border border-tactical-accent/10 rounded-full scale-75"></div>
+        <div class="absolute inset-0 border border-tactical-accent/10 rounded-full scale-50"></div>
+        <div class="absolute w-full h-[1px] bg-tactical-accent/20"></div>
+        <div class="absolute h-full w-[1px] bg-tactical-accent/20"></div>
+        <!-- Escaneo -->
+        <div class="absolute inset-0 radar-sweep origin-center bg-gradient-to-tr from-tactical-accent/30 via-transparent to-transparent rounded-full"></div>
+        <i data-lucide="crosshair" class="w-8 h-8 text-tactical-accent/80 relative z-10 animate-pulse"></i>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 space-y-8 custom-scrollbar">
+
+    <!-- METRICAS DE PRODUCTOS INTELIGENCIA -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-tactical-900 p-4 rounded-xl border border-gray-800 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] font-mono text-gray-400 uppercase">Mapas Activos</p>
+          <h3 class="text-2xl font-black text-tactical-accent font-mono mt-0.5">20</h3>
+        </div>
+        <div class="p-2.5 bg-tactical-accent/10 text-tactical-accent rounded-lg"><i data-lucide="map" class="w-5 h-5"></i></div>
+      </div>
+
+      <div class="bg-tactical-900 p-4 rounded-xl border border-gray-800 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] font-mono text-gray-400 uppercase">Documentos Clave</p>
+          <h3 class="text-2xl font-black text-amber-400 font-mono mt-0.5">03</h3>
+        </div>
+        <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+      </div>
+
+      <div class="bg-tactical-900 p-4 rounded-xl border border-gray-800 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] font-mono text-gray-400 uppercase">Módulos Registro</p>
+          <h3 class="text-2xl font-black text-emerald-400 font-mono mt-0.5">06</h3>
+        </div>
+        <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg"><i data-lucide="layout-grid" class="w-5 h-5"></i></div>
+      </div>
+
+      <div class="bg-tactical-900 p-4 rounded-xl border border-gray-800 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] font-mono text-gray-400 uppercase">Estatus General</p>
+          <h3 class="text-sm font-bold text-cyan-400 font-mono mt-1">Sincronizado</h3>
+        </div>
+        <div class="p-2.5 bg-cyan-500/10 text-cyan-400 rounded-lg"><i data-lucide="check-circle" class="w-5 h-5"></i></div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 1: MÓDULOS DE CONTROL -->
+    <section>
+      <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+        <i data-lucide="layout-grid" class="w-4 h-4 text-tactical-accent"></i> Módulos Principales de Captura y Registro
+      </h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="modulesGrid">
+        
+        <a href="#" class="item-card p-4 bg-tactical-900 hover:bg-tactical-800 rounded-xl glow-box transition flex flex-col items-center text-center group" data-title="empleados bares">
+          <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl group-hover:scale-110 transition mb-2">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-200">Empleados Bares</span>
+        </a>
+
+        <a href="#" class="item-card p-4 bg-tactical-900 hover:bg-tactical-800 rounded-xl glow-box transition flex flex-col items-center text-center group" data-title="reportes portacion armas">
+          <div class="p-3 bg-rose-500/10 text-rose-400 rounded-xl group-hover:scale-110 transition mb-2">
+            <i data-lucide="shield-alert" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-200">Reportes Portación</span>
+        </a>
+
+        <a href="#" class="item-card p-4 bg-tactical-900 hover:bg-tactical-800 rounded-xl glow-box transition flex flex-col items-center text-center group" data-title="detenciones">
+          <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl group-hover:scale-110 transition mb-2">
+            <i data-lucide="user-x" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-200">Detenciones</span>
+        </a>
+
+        <a href="#" class="item-card p-4 bg-tactical-900 hover:bg-tactical-800 rounded-xl glow-box transition flex flex-col items-center text-center group" data-title="abordamientos proximidad">
+          <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:scale-110 transition mb-2">
+            <i data-lucide="footprints" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-200">Abordamientos</span>
+        </a>
+
+        <a href="#" class="item-card p-4 bg-tactical-900 hover:bg-tactical-800 rounded-xl glow-box transition flex flex-col items-center text-center group" data-title="techo seguro">
+          <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl group-hover:scale-110 transition mb-2">
+            <i data-lucide="home" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-200">Techo Seguro</span>
+        </a>
+
+        <a href="#" class="item-card p-4 bg-tactical-900 hover:bg-tactical-800 rounded-xl glow-box transition flex flex-col items-center text-center group" data-title="objetivos poe prioritarios">
+          <div class="p-3 bg-cyan-500/10 text-tactical-accent rounded-xl group-hover:scale-110 transition mb-2">
+            <i data-lucide="target" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-200">Objetivos POE</span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2: INFORMES Y PRESENTACIONES -->
+    <section>
+      <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+        <i data-lucide="file-text" class="w-4 h-4 text-amber-400"></i> Informes de Análisis y Presentaciones
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="docsGrid">
+
+        <a href="https://drive.google.com/open?id=1yUg3Q0uQ2fjEbQJxb36dr3T4RGsPgLwR" target="_blank" data-title="objetivos prioritarios enero 2026 pptx"
+           class="item-card p-4 bg-tactical-900 border border-gray-800 hover:border-amber-500/60 rounded-xl transition flex items-start space-x-3 group">
+          <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl group-hover:bg-amber-500 group-hover:text-black transition">
+            <i data-lucide="presentation" class="w-6 h-6"></i>
+          </div>
+          <div class="flex-1 overflow-hidden">
+            <h3 class="text-sm font-bold text-white group-hover:text-amber-400 transition truncate">Objetivos Prioritarios Enero 2026</h3>
+            <p class="text-xs text-gray-400 mt-1 font-mono">Presentación (.pptx)</p>
+          </div>
+          <i data-lucide="external-link" class="w-4 h-4 text-gray-500 group-hover:text-amber-400 transition"></i>
+        </a>
+
+        <a href="https://drive.google.com/open?id=1owv2CQH7Hmf6ctV7dEbcXj2aeFdKajFh" target="_blank" data-title="detenciones por arma de fuego pptx"
+           class="item-card p-4 bg-tactical-900 border border-gray-800 hover:border-amber-500/60 rounded-xl transition flex items-start space-x-3 group">
+          <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl group-hover:bg-amber-500 group-hover:text-black transition">
+            <i data-lucide="presentation" class="w-6 h-6"></i>
+          </div>
+          <div class="flex-1 overflow-hidden">
+            <h3 class="text-sm font-bold text-white group-hover:text-amber-400 transition truncate">Detenciones por Arma de Fuego</h3>
+            <p class="text-xs text-gray-400 mt-1 font-mono">Análisis táctico (.pptx)</p>
+          </div>
+          <i data-lucide="external-link" class="w-4 h-4 text-gray-500 group-hover:text-amber-400 transition"></i>
+        </a>
+
+        <a href="https://drive.google.com/open?id=1gAwsaEUvHzizYqZQcH77HLc2ghR1o1MeJLGJd0utKV4" target="_blank" data-title="entrevista datos abordamiento"
+           class="item-card p-4 bg-tactical-900 border border-gray-800 hover:border-emerald-500/60 rounded-xl transition flex items-start space-x-3 group">
+          <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:bg-emerald-500 group-hover:text-black transition">
+            <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+          </div>
+          <div class="flex-1 overflow-hidden">
+            <h3 class="text-sm font-bold text-white group-hover:text-emerald-400 transition truncate">Entrevista y/o Datos de Abordamiento</h3>
+            <p class="text-xs text-gray-400 mt-1 font-mono">Formulario de Campo</p>
+          </div>
+          <i data-lucide="external-link" class="w-4 h-4 text-gray-500 group-hover:text-emerald-400 transition"></i>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- SECCIÓN 3: MAPAS Y PRODUCTOS ACTIVOS DE INTELIGENCIA -->
+    <section>
+      <div class="flex flex-wrap justify-between items-center mb-4 gap-3">
+        <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+          <i data-lucide="map-pin" class="w-4 h-4 text-tactical-accent"></i> Productos Activos de Inteligencia (Mapas Geoespaciales)
+        </h2>
+        
+        <!-- BOTONES DE FILTRADO CATEGÓRICO -->
+        <div class="flex flex-wrap gap-1.5 text-xs font-mono">
+          <button onclick="filtrarCategoria('TODOS')" class="cat-btn active px-3 py-1 bg-tactical-accent text-black font-bold rounded-lg transition">TODOS</button>
+          <button onclick="filtrarCategoria('BARES')" class="cat-btn px-3 py-1 bg-tactical-900 text-gray-300 hover:text-white border border-gray-700 rounded-lg transition">BARES</button>
+          <button onclick="filtrarCategoria('SEGUIMIENTO')" class="cat-btn px-3 py-1 bg-tactical-900 text-gray-300 hover:text-white border border-gray-700 rounded-lg transition">SEGUIMIENTO</button>
+          <button onclick="filtrarCategoria('HOMICIDIOS')" class="cat-btn px-3 py-1 bg-tactical-900 text-gray-300 hover:text-white border border-gray-700 rounded-lg transition">HOMICIDIOS</button>
+        </div>
+      </div>
+
+      <!-- GRID DE MAPAS INTERACTIVOS -->
+      <div id="mapsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <!-- LISTADO DE MAPAS EXTRAÍDOS DEL SITIO -->
+        <a href="https://www.google.com/maps/d/edit?mid=1GD4VQwD7MtD3A_4S2wChOBPsXRk5spI" target="_blank" data-cat="BARES" data-title="operativo bares viernes 07 02 2025"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-tactical-accent/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded">Operativo Bares</span>
+            <i data-lucide="map" class="w-5 h-5 text-gray-500 group-hover:text-tactical-accent transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-tactical-accent transition">Operativo Bares Viernes 07/02/2025</h3>
+            <p class="text-xs text-gray-400 mt-1">Georreferenciación de establecimientos e inspecciones.</p>
+          </div>
+          <div class="text-[11px] text-tactical-accent font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1TsZIHZsA-EYyG-BvhEOjgUpchaI344A" target="_blank" data-cat="SEGUIMIENTO" data-title="seguimiento al presunto miguel angel suarez suarez"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-rose-500/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded">Seguimiento</span>
+            <i data-lucide="crosshair" class="w-5 h-5 text-gray-500 group-hover:text-rose-400 transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-rose-400 transition">Seguimiento a Miguel Ángel Suárez Suárez</h3>
+            <p class="text-xs text-gray-400 mt-1">Puntos de interés y mapa del presunto.</p>
+          </div>
+          <div class="text-[11px] text-rose-400 font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1aiMXRKzsTSwVlG2en9YvCdaASjaIUBA" target="_blank" data-cat="SEGUIMIENTO" data-title="mapa en seguimiento al presunto francisco gonzalez gloria alias el fox"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-rose-500/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded">Objetivo</span>
+            <i data-lucide="user-search" class="w-5 h-5 text-gray-500 group-hover:text-rose-400 transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-rose-400 transition">Francisco González Gloria "El Fox"</h3>
+            <p class="text-xs text-gray-400 mt-1">Mapeo estratégico y zonas de influencia.</p>
+          </div>
+          <div class="text-[11px] text-rose-400 font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1veWSRmNVKFHekmuiCHBSkijRRhwEJ7U" target="_blank" data-cat="HOMICIDIOS" data-title="mapa de homicidios febrero 2025 codigo escudo"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-amber-500/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded">Código Escudo</span>
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-gray-500 group-hover:text-amber-400 transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-amber-400 transition">Mapa Homicidios Febrero 2025</h3>
+            <p class="text-xs text-gray-400 mt-1">Monitoreo de eventos delictivos de alto impacto.</p>
+          </div>
+          <div class="text-[11px] text-amber-400 font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1gbmlWH_OBJINqQXXi_F1iO9UPfkMcX8" target="_blank" data-cat="HOMICIDIOS" data-title="mapa de homicidios 2025 codigo escudo"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-amber-500/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded">Código Escudo</span>
+            <i data-lucide="activity" class="w-5 h-5 text-gray-500 group-hover:text-amber-400 transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-amber-400 transition">Mapa Homicidios Anual 2025</h3>
+            <p class="text-xs text-gray-400 mt-1">Histórico general Código Escudo.</p>
+          </div>
+          <div class="text-[11px] text-amber-400 font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1e_yCkT6DfQAqOKDSkhhEauw4nbkYCP4" target="_blank" data-cat="TODOS" data-title="mapa de puestos de control preventivo direccion de reaccion de la policia de monterrey"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-emerald-500/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded">Puestos Control</span>
+            <i data-lucide="shield-check" class="w-5 h-5 text-gray-500 group-hover:text-emerald-400 transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-emerald-400 transition">Puestos de Control Preventivo</h3>
+            <p class="text-xs text-gray-400 mt-1">Dirección de Reacción Policía de Monterrey.</p>
+          </div>
+          <div class="text-[11px] text-emerald-400 font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1dGLksAQx7qUDUZsGTPNAig-yQpe5moE" target="_blank" data-cat="SEGUIMIENTO" data-title="mapa del area de samuel de luna diaz alias el jr"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-rose-500/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded">Objetivo</span>
+            <i data-lucide="user-x" class="w-5 h-5 text-gray-500 group-hover:text-rose-400 transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-rose-400 transition">Área de Samuel De Luna Díaz "El JR"</h3>
+            <p class="text-xs text-gray-400 mt-1">Georreferenciación de zona prioritaria.</p>
+          </div>
+          <div class="text-[11px] text-rose-400 font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1OBee7iSLYAcRorcjxGyEbf4gb2-ME2M" target="_blank" data-cat="SEGUIMIENTO" data-title="delta bravo"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-tactical-accent/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-tactical-accent border border-cyan-500/30 rounded">Operación</span>
+            <i data-lucide="navigation" class="w-5 h-5 text-gray-500 group-hover:text-tactical-accent transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-tactical-accent transition">Delta Bravo</h3>
+            <p class="text-xs text-gray-400 mt-1">Mapa táctico de despliegue y vigilancia.</p>
+          </div>
+          <div class="text-[11px] text-tactical-accent font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+        <a href="https://www.google.com/maps/d/edit?mid=1SfbSw-YEk2Eh8DoneSUn9IhyE2Pt4Nk" target="_blank" data-cat="BARES" data-title="operativo bares viernes 24 01 2025"
+           class="item-card map-card p-4 bg-tactical-900 border border-gray-800 hover:border-tactical-accent/70 rounded-xl transition flex flex-col justify-between group">
+          <div class="flex items-start justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded">Bares</span>
+            <i data-lucide="map" class="w-5 h-5 text-gray-500 group-hover:text-tactical-accent transition"></i>
+          </div>
+          <div class="my-3">
+            <h3 class="text-sm font-bold text-white group-hover:text-tactical-accent transition">Operativo Bares Viernes 24/01/2025</h3>
+            <p class="text-xs text-gray-400 mt-1">Inspección nocturna en bares.</p>
+          </div>
+          <div class="text-[11px] text-tactical-accent font-mono font-semibold flex items-center gap-1 mt-2">
+            Abrir Google My Maps <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER TÁCTICO -->
+  <footer class="bg-tactical-900 border-t border-gray-800 py-6 px-6 mt-12 text-center text-xs text-gray-500 font-mono">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-2">
+        <img src="https://images.gemini.google.com/search?q=https%3A%2F%2Flh3.googleusercontent.com%2Fgg-p%2FAFU4-NTpIsXm0t9f2Xo44gYk_0C489z63xI1e1E6vL6j1j8_p-U4z3e1oN1w9g" class="w-6 h-6 rounded-full border border-gray-700">
+        <span>ESTRATEGIA DE SEGURIDAD ESCUDO — AL CUIDADO DEL ORDEN</span>
+      </div>
+      <div>
+        Coordinación de Logística y Análisis (DOPESC-LYA) © 2026
+      </div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT DE INTERACTIVIDAD -->
+  <script>
+    window.onload = () => {
+      lucide.createIcons();
+      actualizarReloj();
+      setInterval(actualizarReloj, 1000);
+    };
+
+    function actualizarReloj() {
+      const ahora = new Date();
+      document.getElementById('clock').innerText = ahora.toLocaleTimeString();
+    }
+
+    // Búsqueda en tiempo real
+    function filtrarPlataforma() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const items = document.querySelectorAll('.item-card');
+
+      items.forEach(item => {
+        const title = item.getAttribute('data-title') || '';
+        if (title.includes(query)) {
+          item.classList.remove('hidden');
+        } else {
+          item.classList.add('hidden');
+        }
+      });
+    }
+
+    // Filtro por categorías de mapas
+    function filtrarCategoria(cat) {
+      const buttons = document.querySelectorAll('.cat-btn');
+      buttons.forEach(btn => {
+        btn.classList.remove('bg-tactical-accent', 'text-black', 'font-bold');
+        btn.classList.add('bg-tactical-900', 'text-gray-300');
+      });
+
+      event.target.classList.remove('bg-tactical-900', 'text-gray-300');
+      event.target.classList.add('bg-tactical-accent', 'text-black', 'font-bold');
+
+      const cards = document.querySelectorAll('.map-card');
+      cards.forEach(card => {
+        const cardCat = card.getAttribute('data-cat');
+        if (cat === 'TODOS' || cardCat === cat) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
